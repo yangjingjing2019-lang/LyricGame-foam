@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>泡沫 FOAM | 專業修訂版</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;700;900&display=swap');
+        body { font-family: 'Noto Sans TC', sans-serif; background: #020617; color: #fff; overflow: hidden; height: 100vh; touch-action: manipulation; }
+        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .lyric-container { display: flex; justify-content: center; align-items: center; flex-wrap: nowrap; width: 100%; min-height: 200px; }
+        .lyric-char { flex: 0 0 auto; cursor: pointer; position: relative; margin: 0 0.12em; transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .target-found { color: #fbbf24 !important; font-weight: 900; transform: scale(1.15); text-shadow: 0 0 15px rgba(251, 191, 36, 0.6); }
+        .feedback-note { position: absolute; top: -70px; left: 50%; transform: translateX(-50%); pointer-events: none; z-index: 100; text-align: center; }
+        .py-text { font-size: 1.5rem; font-weight: bold; display: block; color: #60a5fa; }
+        .score-text { font-size: 1.8rem; font-weight: 900; display: block; }
+        @keyframes floatUp { 0% { transform: translate(-50%, 20px); opacity: 0; } 20% { opacity: 1; } 100% { transform: translate(-50%, -100px); opacity: 0; } }
+        .animate-float { animation: floatUp 1.2s ease-out forwards; }
+        .rotate-slow { animation: rotate 3s linear infinite; }
+        @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+<div id="app" class="h-screen flex flex-col items-center justify-between py-6 px-2">
+    <!-- 頂部資訊 -->
+    <div v-if="gameState !== 'login'" class="w-full max-w-4xl flex justify-between items-start z-50 px-4">
+        <div class="flex items-center gap-4">
+            <button @click="toggleMusic" class="w-14 h-14 rounded-full glass flex items-center justify-center border-2 border-white/20">
+                <span v-if="isPaused" class="text-2xl">▶️</span>
+                <span v-else class="text-2xl rotate-slow">💿</span>
+            </button>
+            <div class="space-y-1">
+                <p class="text-[10px] text-blue-400 font-bold uppercase">{{ playerName }}</p>
+                <p class="text-5xl md:text-7xl font-black text-yellow-400 tabular-nums">{{ score }}</p>
+            </div>
+        </div>
+        <div class="glass p-3 rounded-2xl text-right">
+            <h4 class="text-xs font-bold text-yellow-400">ao / iao</h4>
+            <p class="text-[10px] text-gray-400 leading-tight"> </p>
+        </div>
+    </div>
+
+    <!-- 登入 -->
+    <div v-if="gameState === 'login'" class="flex-1 flex flex-col items-center justify-center w-full max-w-sm px-6">
+        <div class="glass w-full p-10 rounded-[40px] text-center space-y-8">
+            <h1 class="text-6xl font-black italic text-transparent bg-clip-text bg-gradient-to-b from-white to-gray-500">泡沫</h1>
+            <input v-model="playerName" type="text" placeholder="PLAYER NAME" class="w-full bg-white/5 border border-white/10 rounded-2xl py-5 text-center text-xl outline-none focus:border-yellow-400">
+            <button @click="startGame" class="w-full py-5 bg-yellow-400 text-black rounded-2xl font-black text-xl">START</button>
+        </div>
+    </div>
+
+    <!-- 舞台 -->
+    <div v-if="gameState === 'playing'" class="flex-1 flex flex-col items-center justify-center w-full">
+        <div class="lyric-container mb-12" :style="{ fontSize: dynamicFontSize }">
+            <div :key="currentIndex" class="flex items-center justify-center w-full">
+                <div v-for="(char, idx) in currentLineChars" :key="idx"
+                    class="lyric-char font-light" :class="{ 'target-found': char.found }"
+                    @click="handleTap(idx)">
+                    {{ char.text }}
+                    <div v-if="char.showFeedback" class="feedback-note animate-float">
+                        <span class="py-text">{{ char.pinyin }}</span>
+                        <span class="score-text" :class="char.isCorrect ? 'text-yellow-400' : 'text-red-500'">
+                            {{ char.isCorrect ? '+10' : '-3' }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="w-full max-w-xs space-y-6">
+            <div class="flex gap-4">
+                <button @click="changeLine(-1)" class="flex-1 py-4 rounded-2xl glass text-xs font-bold" :disabled="currentIndex === 0">PREV</button>
+                <button @click="changeLine(1)" class="flex-[2] py-4 rounded-2xl bg-white text-black font-black text-xs">
+                    {{ currentIndex === lyrics.length - 1 ? 'FINISH' : 'NEXT LINE' }}
+                </button>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="flex-1 h-2 bg-white/5 rounded-full overflow-hidden">
+                    <div class="h-full bg-yellow-400 transition-all duration-500" :style="{ width: ((currentIndex + 1)/lyrics.length)*100 + '%' }"></div>
+                </div>
+                <span class="text-[10px] text-white/40">{{ currentIndex + 1 }} / {{ lyrics.length }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 結算 -->
+    <div v-if="gameState === 'end'" class="flex-1 flex flex-col items-center justify-center w-full max-w-xs space-y-12">
+        <div class="text-center">
+            <h2 class="text-9xl font-black text-yellow-400">{{ score }}</h2>
+        </div>
+        <button @click="restart" class="w-full bg-yellow-400 text-black py-5 rounded-[2rem] font-black text-xl">RESTART</button>
+    </div>
+</div>
+
+<script>
+const { createApp, ref, computed, nextTick } = Vue;
+
+createApp({
+    setup() {
+        const gameState = ref('login');
+        const playerName = ref('');
+        const score = ref(0);
+        const currentIndex = ref(0);
+        const currentLineChars = ref([]);
+        const isPaused = ref(false);
+        const audio = new Audio('foam.mp3');
+
+        // 核心修正 1：擴展正確答案清單
+        const CORRECT_TARGETS = ['泡', '早', '道', '要', '掉', '渺', '到', '告'];
+        
+        // 核心修正 2：全域點擊記憶，防止 PREV/NEXT 重複得分
+        const tappedHistory = ref({}); // 格式: { "行Index-字Index": true }
+
+        // 核心修正 3：嚴格核對每一行文字與拼音的長度（100%對齊）
+        const lyrics = [
+    { text: "陽光下的泡沫是彩色的", py: ["yáng","guāng","xià","de","pào","mò","shì","cǎi","sè","de"] },
+    { text: "就像被騙的我是幸福的", py: ["jiù","xiàng","bèi","piàn","de","wǒ","shì","xìng","fú","de"] },
+    { text: "追究什麼對錯你的謊言", py: ["zhuī","jiū","shén","me","duì","cuò","nǐ","de","huǎng","yán"] },
+    { text: "基於你還愛我", py: ["jī","yú","nǐ","hái","ài","wǒ"] },
+    { text: "美麗的泡沫雖然一剎花火", py: ["měi","lì","de","pào","mò","suī","rán","yī","chà","huā","huǒ"] },
+    { text: "你所有承諾雖然都太脆弱", py: ["nǐ","suǒ","yǒu","chéng","nuò","suī","rán","dōu","tài","cuì","ruò"] },
+    { text: "但愛像泡沫如果能夠看破", py: ["dàn","ài","xiàng","pào","mò","rú","guǒ","néng","gòu","kàn","pò"] },
+    { text: "有什麼難過", py: ["yǒu","shén","me","nán","guò"] },
+    { text: "早該知道泡沫一觸就破", py: ["zǎo","gāi","zhī","dào","pào","mò","yī","chù","jiù","pò"] },
+    { text: "就像已傷的心不勝折磨", py: ["jiù","xiàng","yǐ","shāng","de","xīn","bù","shèng","zhé","mó"] },
+    { text: "也不是誰的錯謊言再多", py: ["yě","bù","shì","shuí","de","cuò","huǎng","yán","zài","duō"] },
+    { text: "美麗的泡沫雖然一剎花火", py: ["měi","lì","de","pào","mò","suī","rán","yī","chà","huā","huǒ"] },
+    { text: "再美的花朵盛開過就凋落", py: ["zài","měi","de","huā","duǒ","shèng","kāi","guò","jiù","diāo","luò"] },
+    { text: "再亮眼的星一閃過就墜落", py: ["zài","liàng","yǎn","de","xīng","yī","shǎn","guò","jiù","zhuì","luò"] },
+    { text: "全都是泡沫只一剎的花火", py: ["quán","dōu","shì","pào","mò","zhǐ","yī","chà","de","huā","huǒ"] },
+    { text: "而你的輪廓怪我沒有看破", py: ["ér","nǐ","de","lún","kuò","guài","wǒ","méi","yǒu","kàn","pò"] },
+    { text: "相愛的把握要如何再搜索", py: ["xiāng","ài","de","bǎ","wò","yào","rú","hé","zài","sōu","suǒ"] },
+    { text: "在雨下的泡沫一觸就破", py: ["zài","yǔ","xià","de","pào","mò","yī","chù","jiù","pò"] },
+    { text: "當初熾熱的心早已沉沒", py: ["dāng","chū","chì","rè","de","xīn","zǎo","yǐ","chén","mó"] }
+];
+        const dynamicFontSize = computed(() => {
+            const count = currentLineChars.value.length;
+            return count > 10 ? '2.2rem' : (count > 8 ? '3rem' : '3.8rem');
+        });
+
+    const updateLine = () => {
+    const row = lyrics[currentIndex.value];
+    currentLineChars.value = row.text.split('').map((char, i) => {
+        const historyKey = `${currentIndex.value}-${i}`;
+        const isTappedBefore = tappedHistory.value[historyKey] || false;
+        return {
+            text: char,
+            pinyin: row.py[i] || "", // 直接 1 對 1 映射，不會錯位
+            isTarget: CORRECT_TARGETS.includes(char),
+            found: isTappedBefore && CORRECT_TARGETS.includes(char),
+            isTapped: isTappedBefore,
+            showFeedback: false,
+            isCorrect: false
+        };
+    });
+};
+
+        const handleTap = (idx) => {
+            const charObj = currentLineChars.value[idx];
+            const historyKey = `${currentIndex.value}-${idx}`;
+
+            // 如果本字在當前生命週期或歷史記錄中已點擊過，禁止得分
+            if (charObj.isTapped || tappedHistory.value[historyKey]) return;
+
+            // 存入歷史紀錄，永久鎖定
+            charObj.isTapped = true;
+            tappedHistory.value[historyKey] = true;
+
+            charObj.showFeedback = false;
+            nextTick(() => {
+                charObj.showFeedback = true;
+                if (charObj.isTarget) {
+                    charObj.found = true;
+                    charObj.isCorrect = true;
+                    score.value += 10;
+                } else {
+                    charObj.isCorrect = false;
+                    score.value = Math.max(0, score.value - 3);
+                }
+            });
+            setTimeout(() => { charObj.showFeedback = false; }, 1200);
+        };
+
+        const startGame = () => { if (playerName.value) { gameState.value = 'playing'; updateLine(); audio.play(); } };
+        const toggleMusic = () => { if (isPaused.value) { audio.play(); isPaused.value = false; } else { audio.pause(); isPaused.value = true; } };
+        const changeLine = (step) => {
+            const next = currentIndex.value + step;
+            if (next >= 0 && next < lyrics.length) { currentIndex.value = next; updateLine(); }
+            else if (next >= lyrics.length) { gameState.value = 'end'; audio.pause(); }
+        };
+        const restart = () => location.reload();
+
+        return { gameState, playerName, score, currentIndex, currentLineChars, isPaused, lyrics, dynamicFontSize, startGame, toggleMusic, handleTap, changeLine, restart };
+    }
+}).mount('#app');
+</script>
+</body>
+</html>
