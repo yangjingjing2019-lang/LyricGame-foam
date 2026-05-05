@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>泡沫 FOAM 韻母挑戰| 專業打卡修訂版</title>
+    <title>泡沫 FOAM | 專業打卡修訂版</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -33,7 +33,7 @@
 <body>
 
 <div id="app" class="h-screen flex flex-col items-center justify-between py-4 px-2">
-    <!-- 頂部資訊 -->
+    <!-- 頂部資訊 (遊戲中顯示) -->
     <div v-if="gameState !== 'login'" class="w-full max-w-5xl flex justify-between items-center z-50 px-4 game-header">
         <div class="flex items-center gap-3">
             <button @click="toggleMusic" class="w-10 h-10 md:w-14 md:h-14 rounded-full glass flex items-center justify-center border-2 border-white/20">
@@ -47,16 +47,33 @@
         </div>
         <div class="glass p-2 md:p-3 rounded-xl text-right">
             <h4 class="text-[10px] md:text-xs font-bold text-yellow-400">耗時: {{ gameTime }}s</h4>
-            <p class="text-[8px] text-white/40">目標韻腳: ao/iao </p>
+            <p class="text-[8px] text-white/40">目標: ao / iao</p>
         </div>
     </div>
 
-    <!-- 登入介面 -->
-    <div v-if="gameState === 'login'" class="flex-1 flex flex-col items-center justify-center w-full max-w-sm px-6">
+    <!-- 登入與遊戲說明 -->
+    <div v-if="gameState === 'login'" class="flex-1 flex flex-col items-center justify-center w-full max-w-md px-6">
         <div class="glass w-full p-8 rounded-[30px] text-center space-y-6">
             <h1 class="text-5xl font-black italic text-transparent bg-clip-text bg-gradient-to-b from-white to-gray-500">泡沫</h1>
+            
+            <!-- 遊戲說明區塊 -->
+            <div class="bg-white/5 border border-white/10 rounded-2xl p-5 text-left space-y-3">
+                <h3 class="text-yellow-400 font-bold text-lg flex items-center gap-2">
+                    💡 遊戲玩法
+                </h3>
+                <p class="text-sm text-gray-300 leading-relaxed">
+                    請點選歌詞中韻母是 <span class="text-white font-bold">ao</span> 或 <span class="text-white font-bold">iao</span> 的字。
+                </p>
+                <div class="flex justify-between items-center text-xs pt-2 border-t border-white/10">
+                    <span class="text-green-400">✅ 正確：+10 分</span>
+                    <span class="text-red-400">❌ 錯誤：-3 分</span>
+                </div>
+            </div>
+
             <input v-model="playerName" type="text" placeholder="輸入玩家名稱" class="w-full bg-white/5 border border-white/10 rounded-xl py-4 text-center text-lg outline-none focus:border-yellow-400">
-            <button @click="startGame" class="w-full py-4 bg-yellow-400 text-black rounded-xl font-black text-lg">START</button>
+            <button @click="startGame" class="w-full py-4 bg-yellow-400 text-black rounded-xl font-black text-xl shadow-lg shadow-yellow-400/20 active:scale-95 transition-transform">
+                START GAME
+            </button>
         </div>
     </div>
 
@@ -94,7 +111,7 @@
         </div>
     </div>
 
-    <!-- 結算介面 (打卡) -->
+    <!-- 結算介面 -->
     <div v-if="gameState === 'end'" class="flex-1 flex flex-col items-center justify-center w-full max-w-sm px-6 space-y-6">
         <div class="glass w-full p-8 rounded-[40px] text-center">
             <p class="text-gray-400 text-sm mb-2 uppercase tracking-widest">Final Result</p>
@@ -129,6 +146,7 @@ createApp({
         const audio = new Audio('foam.mp3');
         audio.preload = "auto";
 
+        // 目標韻母關鍵字對應
         const CORRECT_TARGETS = ['泡', '早', '道', '要', '掉', '渺', '到', '告', '校', '笑', '少', '好', '考', '描', '跑', '聊'];
 
         const lyrics = [
@@ -169,7 +187,7 @@ createApp({
 
         const dynamicFontSize = computed(() => {
             const count = currentLineChars.value.length;
-            if (window.innerHeight < 500) return count > 12 ? '1.4rem' : '1.9rem';
+            if (window.innerHeight < 500) return count > 12 ? '1.3rem' : '1.8rem';
             return count > 12 ? '1.8rem' : (count > 8 ? '2.5rem' : '3.2rem');
         });
 
@@ -214,14 +232,14 @@ createApp({
         };
 
         const startGame = () => {
-            if (playerName.value) {
-                gameState.value = 'playing';
-                updateLine();
-                // 啟動計時
-                timerInterval = setInterval(() => { gameTime.value++; }, 1000);
-                // 核心修復：點擊按鈕後立即播放音樂
-                audio.play().catch(e => console.log("Audio play blocked"));
+            if (playerName.value.trim() === '') {
+                alert("請先輸入玩家名稱哦！");
+                return;
             }
+            gameState.value = 'playing';
+            updateLine();
+            timerInterval = setInterval(() => { gameTime.value++; }, 1000);
+            audio.play().catch(e => console.log("播放受阻"));
         };
 
         const toggleMusic = () => {
@@ -246,7 +264,7 @@ createApp({
         };
 
         const shareToWhatsApp = () => {
-            const text = `🎤 《泡沫》互動歌詞挑戰 🎵\n\n👤 玩家：${playerName.value}\n🏆 最終得分：${score.value}\n⏱ 完成時間：${gameTime.value} 秒\n\n「全都是泡沫，只一剎的花火...」\n你也想試試看嗎？`;
+            const text = `🎤 《泡沫》歌詞韻母挑戰成功！\n\n👤 玩家：${playerName.value}\n🏆 最終得分：${score.value}\n⏱ 挑戰耗時：${gameTime.value} 秒\n\n全都是泡沫，只一剎的花火... 🎵\n你能打破我的紀錄嗎？`;
             const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
             window.open(url, '_blank');
         };
