@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>泡沫 FOAM | 互動修訂版</title>
+    <title>泡沫 FOAM | 專業打卡修訂版</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -14,25 +14,18 @@
         .lyric-char { flex: 0 0 auto; cursor: pointer; position: relative; margin: 0 0.1em; transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         .target-found { color: #fbbf24 !important; font-weight: 900; transform: scale(1.1); text-shadow: 0 0 15px rgba(251, 191, 36, 0.6); }
         
-        /* 針對橫屏優化的回饋動畫 */
         .feedback-note { position: absolute; top: -50px; left: 50%; transform: translateX(-50%); pointer-events: none; z-index: 100; text-align: center; width: 80px; }
         .py-text { font-size: 1rem; font-weight: bold; display: block; color: #60a5fa; line-height: 1; }
         .score-text { font-size: 1.4rem; font-weight: 900; display: block; line-height: 1.2; }
         
-        @keyframes floatUp { 
-            0% { transform: translate(-50%, 10px); opacity: 0; } 
-            20% { opacity: 1; } 
-            100% { transform: translate(-50%, -60px); opacity: 0; } 
-        }
+        @keyframes floatUp { 0% { transform: translate(-50%, 10px); opacity: 0; } 20% { opacity: 1; } 100% { transform: translate(-50%, -60px); opacity: 0; } }
         .animate-float { animation: floatUp 1s ease-out forwards; }
         .rotate-slow { animation: rotate 3s linear infinite; }
         @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         
-        /* 手機橫屏適配樣式 */
         @media (orientation: landscape) and (max-height: 500px) {
             .game-header { padding-top: 0.5rem !important; }
             .score-display { font-size: 2.5rem !important; }
-            .stage-area { gap: 1rem !important; }
             .lyric-container { min-height: 80px; }
         }
     </style>
@@ -53,7 +46,8 @@
             </div>
         </div>
         <div class="glass p-2 md:p-3 rounded-xl text-right">
-            <h4 class="text-[10px] md:text-xs font-bold text-yellow-400">押韻目標: ao / iao</h4>
+            <h4 class="text-[10px] md:text-xs font-bold text-yellow-400">耗時: {{ gameTime }}s</h4>
+            <p class="text-[8px] text-white/40">目標韻腳: ao</p>
         </div>
     </div>
 
@@ -62,12 +56,12 @@
         <div class="glass w-full p-8 rounded-[30px] text-center space-y-6">
             <h1 class="text-5xl font-black italic text-transparent bg-clip-text bg-gradient-to-b from-white to-gray-500">泡沫</h1>
             <input v-model="playerName" type="text" placeholder="輸入玩家名稱" class="w-full bg-white/5 border border-white/10 rounded-xl py-4 text-center text-lg outline-none focus:border-yellow-400">
-            <button @click="startGame" class="w-full py-4 bg-yellow-400 text-black rounded-xl font-black text-lg">開始遊戲</button>
+            <button @click="startGame" class="w-full py-4 bg-yellow-400 text-black rounded-xl font-black text-lg">START</button>
         </div>
     </div>
 
     <!-- 舞台區域 -->
-    <div v-if="gameState === 'playing'" class="flex-1 flex flex-col items-center justify-center w-full stage-area">
+    <div v-if="gameState === 'playing'" class="flex-1 flex flex-col items-center justify-center w-full">
         <div class="lyric-container" :style="{ fontSize: dynamicFontSize }">
             <div :key="currentIndex" class="flex flex-wrap items-center justify-center w-full">
                 <div v-for="(char, idx) in currentLineChars" :key="idx"
@@ -84,12 +78,11 @@
             </div>
         </div>
 
-        <!-- 控制器 -->
         <div class="w-full max-w-md space-y-4 px-4">
             <div class="flex gap-3">
                 <button @click="changeLine(-1)" class="flex-1 py-3 rounded-xl glass text-[10px] font-bold" :disabled="currentIndex === 0">PREV</button>
                 <button @click="changeLine(1)" class="flex-[2] py-3 rounded-xl bg-white text-black font-black text-xs">
-                    {{ currentIndex === lyrics.length - 1 ? '完成結算' : '下一句 NEXT' }}
+                    {{ currentIndex === lyrics.length - 1 ? '完成挑戰並打卡' : '下一句 NEXT' }}
                 </button>
             </div>
             <div class="flex items-center gap-3">
@@ -101,18 +94,25 @@
         </div>
     </div>
 
-    <!-- 結算介面 -->
-    <div v-if="gameState === 'end'" class="flex-1 flex flex-col items-center justify-center w-full max-w-xs space-y-8">
-        <div class="text-center">
-            <p class="text-gray-400 font-bold">FINAL SCORE</p>
-            <h2 class="text-8xl font-black text-yellow-400">{{ score }}</h2>
+    <!-- 結算介面 (打卡) -->
+    <div v-if="gameState === 'end'" class="flex-1 flex flex-col items-center justify-center w-full max-w-sm px-6 space-y-6">
+        <div class="glass w-full p-8 rounded-[40px] text-center">
+            <p class="text-gray-400 text-sm mb-2 uppercase tracking-widest">Final Result</p>
+            <h2 class="text-7xl font-black text-yellow-400 mb-4">{{ score }}</h2>
+            <div class="grid grid-cols-2 gap-4 text-sm border-t border-white/10 pt-4">
+                <div><p class="text-white/40">玩家</p><p class="font-bold">{{ playerName }}</p></div>
+                <div><p class="text-white/40">時間</p><p class="font-bold">{{ gameTime }}s</p></div>
+            </div>
         </div>
-        <button @click="restart" class="w-full bg-yellow-400 text-black py-4 rounded-2xl font-black text-lg">再次挑戰</button>
+        <button @click="shareToWhatsApp" class="w-full bg-[#25D366] text-white py-4 rounded-2xl font-black text-lg flex items-center justify-center gap-2 shadow-lg">
+            WhatsApp 分享戰績
+        </button>
+        <button @click="restart" class="w-full glass text-white/60 py-4 rounded-2xl font-black text-lg">重新開始</button>
     </div>
 </div>
 
 <script>
-const { createApp, ref, computed, nextTick } = Vue;
+const { createApp, ref, computed, nextTick, onUnmounted } = Vue;
 
 createApp({
     setup() {
@@ -123,11 +123,14 @@ createApp({
         const currentLineChars = ref([]);
         const isPaused = ref(false);
         const tappedHistory = ref({}); 
+        const gameTime = ref(0);
+        let timerInterval = null;
 
-        // 韻腳目標字 (ao/iao)
+        const audio = new Audio('foam.mp3');
+        audio.preload = "auto";
+
         const CORRECT_TARGETS = ['泡', '早', '道', '要', '掉', '渺', '到', '告', '校', '笑', '少', '好', '考', '描', '跑', '聊'];
 
-        // 完整歌詞資料庫
         const lyrics = [
             { text: "陽光下的泡沫是彩色的", py: ["yáng","guāng","xià","de","pào","mò","shì","cǎi","sè","de"] },
             { text: "就像被騙的我是幸福的", py: ["jiù","xiàng","bèi","piàn","de","wǒ","shì","xìng","fú","de"] },
@@ -166,10 +169,8 @@ createApp({
 
         const dynamicFontSize = computed(() => {
             const count = currentLineChars.value.length;
-            if (window.innerHeight < 500) { // 橫屏適配
-                return count > 12 ? '1.5rem' : '2.2rem';
-            }
-            return count > 12 ? '2rem' : (count > 8 ? '2.8rem' : '3.5rem');
+            if (window.innerHeight < 500) return count > 12 ? '1.4rem' : '1.9rem';
+            return count > 12 ? '1.8rem' : (count > 8 ? '2.5rem' : '3.2rem');
         });
 
         const updateLine = () => {
@@ -180,7 +181,7 @@ createApp({
                 return {
                     text: char,
                     pinyin: row.py[i] || "",
-                    isTarget: CORRECT_TARGETS.includes(char) || (row.py[i] && (row.py[i].endsWith('ào') || row.py[i].endsWith('ǎo'))),
+                    isTarget: CORRECT_TARGETS.includes(char),
                     found: isTappedBefore && CORRECT_TARGETS.includes(char),
                     isTapped: isTappedBefore,
                     showFeedback: false,
@@ -192,13 +193,12 @@ createApp({
         const handleTap = (idx) => {
             const charObj = currentLineChars.value[idx];
             const historyKey = `${currentIndex.value}-${idx}`;
-
             if (charObj.isTapped || tappedHistory.value[historyKey]) return;
 
             charObj.isTapped = true;
             tappedHistory.value[historyKey] = true;
-
             charObj.showFeedback = false;
+            
             nextTick(() => {
                 charObj.showFeedback = true;
                 if (charObj.isTarget) {
@@ -213,16 +213,49 @@ createApp({
             setTimeout(() => { charObj.showFeedback = false; }, 1000);
         };
 
-        const startGame = () => { if (playerName.value) { gameState.value = 'playing'; updateLine(); } };
-        const toggleMusic = () => { isPaused.value = !isPaused.value; };
+        const startGame = () => {
+            if (playerName.value) {
+                gameState.value = 'playing';
+                updateLine();
+                // 啟動計時
+                timerInterval = setInterval(() => { gameTime.value++; }, 1000);
+                // 核心修復：點擊按鈕後立即播放音樂
+                audio.play().catch(e => console.log("Audio play blocked"));
+            }
+        };
+
+        const toggleMusic = () => {
+            if (audio.paused) { audio.play(); isPaused.value = false; }
+            else { audio.pause(); isPaused.value = true; }
+        };
+
         const changeLine = (step) => {
             const next = currentIndex.value + step;
-            if (next >= 0 && next < lyrics.length) { currentIndex.value = next; updateLine(); }
-            else if (next >= lyrics.length) { gameState.value = 'end'; }
+            if (next >= 0 && next < lyrics.length) {
+                currentIndex.value = next;
+                updateLine();
+            } else if (next >= lyrics.length) {
+                endGame();
+            }
         };
+
+        const endGame = () => {
+            gameState.value = 'end';
+            clearInterval(timerInterval);
+            audio.pause();
+        };
+
+        const shareToWhatsApp = () => {
+            const text = `🎤 《泡沫》互動歌詞挑戰 🎵\n\n👤 玩家：${playerName.value}\n🏆 最終得分：${score.value}\n⏱ 完成時間：${gameTime.value} 秒\n\n「全都是泡沫，只一剎的花火...」\n你也想試試看嗎？`;
+            const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+            window.open(url, '_blank');
+        };
+
         const restart = () => location.reload();
 
-        return { gameState, playerName, score, currentIndex, currentLineChars, isPaused, lyrics, dynamicFontSize, startGame, toggleMusic, handleTap, changeLine, restart };
+        onUnmounted(() => clearInterval(timerInterval));
+
+        return { gameState, playerName, score, currentIndex, currentLineChars, isPaused, lyrics, dynamicFontSize, gameTime, startGame, toggleMusic, handleTap, changeLine, restart, shareToWhatsApp };
     }
 }).mount('#app');
 </script>
